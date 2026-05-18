@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+
+# Node
+node_modules/
+
+# App
+settings.json
+logs/
+*.log
+.u2net/
+models/
+
+# Tooling artifacts
+.playwright-mcp/
+
+# Root-level screenshots (test/debug captures)
+/dashboard*.png
+/live.png
+/settings.png
+/lightbox-*.png
+/logs-*.png
+/output-*.png
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
