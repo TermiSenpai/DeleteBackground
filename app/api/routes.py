@@ -7,12 +7,7 @@ business logic itself; orchestration lives in :mod:`app.core.batch_processor`.
 from __future__ import annotations
 
 import asyncio
-import base64
-import json
 import logging
-import os
-import subprocess
-import sys
 from pathlib import Path
 from typing import Annotated
 
@@ -34,6 +29,7 @@ from app.core.exceptions import (
     UnsafePathError,
 )
 from app.core.file_manager import iter_images
+from app.core.folder_picker import pick_folder as _pick_folder_native
 from app.models.schemas import (
     FolderProbeRequest,
     FolderProbeResponse,
@@ -96,177 +92,6 @@ async def update_preferences(
     return PreferencesResponse(preferences=saved)
 
 
-_TK_PICKER_SCRIPT: str = r"""
-import json
-import sys
-
-try:
-    import tkinter as tk
-    from tkinter import filedialog
-except Exception as exc:  # pragma: no cover - exercised only on broken installs.
-    print(json.dumps({"path": "", "error": "tkinter unavailable: " + str(exc)}))
-    raise SystemExit(0)
-
-initial = sys.argv[1] if len(sys.argv) > 1 else ""
-title = sys.argv[2] if len(sys.argv) > 2 else "Choose folder"
-
-root = tk.Tk()
-root.withdraw()
-try:
-    root.attributes("-topmost", True)
-except tk.TclError:
-    pass
-
-selected = filedialog.askdirectory(
-    initialdir=initial or None,
-    title=title,
-    mustexist=True,
-)
-root.destroy()
-print(json.dumps({"path": selected or ""}))
-"""
-
-# PowerShell + Windows Forms FolderBrowserDialog. Parameters arrive via env so
-# we don't have to escape user-supplied strings into a script literal.
-#
-# We do NOT pass an owner Form to ShowDialog(). The previous implementation
-# created an Opacity=0.0 owner Form intending to make the dialog topmost, but
-# Windows treats a fully transparent owner as "not displayed" and ShowDialog()
-# returns Cancel immediately without ever showing the dialog. With
-# AutoUpgradeEnabled (default in .NET 4.5+) FolderBrowserDialog uses the modern
-# IFileDialog under the hood, which appears in the foreground reliably without
-# needing a synthetic owner.
-_WINDOWS_PICKER_SCRIPT: str = r"""
-$ErrorActionPreference = "Stop"
-try {
-    Add-Type -AssemblyName System.Windows.Forms | Out-Null
-
-    $dlg = New-Object System.Windows.Forms.FolderBrowserDialog
-    $dlg.Description = $env:DBG_PICKER_TITLE
-    try { $dlg.UseDescriptionForTitle = $true } catch {}
-    try { $dlg.AutoUpgradeEnabled = $true } catch {}
-    $dlg.ShowNewFolderButton = $true
-    if ($env:DBG_PICKER_INITIAL) {
-        try { $dlg.SelectedPath = $env:DBG_PICKER_INITIAL } catch {}
-    }
-
-    $result = $dlg.ShowDialog()
-
-    if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
-        [Console]::Out.WriteLine($dlg.SelectedPath)
-    } else {
-        [Console]::Error.WriteLine("CANCELLED")
-    }
-} catch {
-    [Console]::Error.WriteLine($_.Exception.Message)
-    exit 2
-}
-"""
-
-
-def _run_windows_picker_sync(initial_dir: str, title: str) -> tuple[int, bytes, bytes]:
-    """Blocking helper: spawn the PowerShell folder dialog and capture output.
-
-    Run inside ``asyncio.to_thread`` so it works regardless of which event-loop
-    implementation Uvicorn happens to pick — ``WindowsSelectorEventLoop`` does
-    not support :func:`asyncio.create_subprocess_exec` and raises
-    :class:`NotImplementedError` with an empty message, which is hard to debug.
-
-    The script is passed via ``-EncodedCommand`` (base64 UTF-16LE) rather than
-    stdin so we never have to worry about pipe buffering, line endings, or
-    PowerShell's prompt parser interrupting the body.
-    """
-    env = dict(os.environ)
-    env["DBG_PICKER_INITIAL"] = initial_dir or ""
-    env["DBG_PICKER_TITLE"] = title or "Choose folder"
-
-    creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
-    encoded = base64.b64encode(
-        _WINDOWS_PICKER_SCRIPT.encode("utf-16le")
-    ).decode("ascii")
-
-    result = subprocess.run(
-        [
-            "powershell.exe",
-            "-NoProfile",
-            "-ExecutionPolicy",
-            "Bypass",
-            "-STA",
-            "-EncodedCommand",
-            encoded,
-        ],
-        capture_output=True,
-        env=env,
-        creationflags=creationflags,
-        check=False,
-    )
-    return result.returncode, result.stdout, result.stderr
-
-
-async def _open_folder_picker_windows(initial_dir: str, title: str) -> str:
-    """Open the Windows FolderBrowserDialog via a hidden PowerShell session."""
-    returncode, stdout, stderr = await asyncio.to_thread(
-        _run_windows_picker_sync, initial_dir, title
-    )
-    err_text = stderr.decode("utf-8", errors="replace").strip()
-    if returncode != 0:
-        raise RuntimeError(
-            err_text or f"Folder picker exited with code {returncode}."
-        )
-    selected = stdout.decode("utf-8", errors="replace").strip()
-    if not selected and err_text and err_text != "CANCELLED":
-        logger.warning("Folder picker returned empty path with stderr: %s", err_text)
-    return selected
-
-
-def _run_tk_picker_sync(initial_dir: str, title: str) -> tuple[int, bytes, bytes]:
-    """Blocking helper: spawn the tkinter folder dialog in a child interpreter."""
-    result = subprocess.run(
-        [
-            sys.executable,
-            "-X",
-            "utf8",
-            "-c",
-            _TK_PICKER_SCRIPT,
-            initial_dir or "",
-            title or "Choose folder",
-        ],
-        capture_output=True,
-        check=False,
-    )
-    return result.returncode, result.stdout, result.stderr
-
-
-async def _open_folder_picker_tk(initial_dir: str, title: str) -> str:
-    """Open a tkinter folder dialog in an isolated subprocess (non-Windows)."""
-    returncode, stdout, stderr = await asyncio.to_thread(
-        _run_tk_picker_sync, initial_dir, title
-    )
-    if returncode != 0:
-        message = stderr.decode("utf-8", errors="replace").strip()
-        raise RuntimeError(
-            message or f"Folder picker exited with code {returncode}."
-        )
-
-    raw = stdout.decode("utf-8", errors="replace").strip()
-    if not raw:
-        return ""
-    try:
-        payload = json.loads(raw)
-    except json.JSONDecodeError as exc:
-        raise RuntimeError(f"Folder picker returned invalid output: {raw!r}") from exc
-    if payload.get("error"):
-        raise RuntimeError(str(payload["error"]))
-    return str(payload.get("path", "") or "")
-
-
-async def _open_native_folder_picker(initial_dir: str, title: str) -> str:
-    """Open the host's native folder-picker dialog and return the selection."""
-    if sys.platform == "win32":
-        return await _open_folder_picker_windows(initial_dir, title)
-    return await _open_folder_picker_tk(initial_dir, title)
-
-
 @router.post("/folder/pick", response_model=PickFolderResponse)
 async def pick_folder(payload: PickFolderRequest) -> PickFolderResponse:
     """Open the host's native folder-picker dialog and return the choice.
@@ -277,8 +102,10 @@ async def pick_folder(payload: PickFolderRequest) -> PickFolderResponse:
     the user dismisses the dialog.
     """
     try:
-        selected = await _open_native_folder_picker(payload.initial_dir, payload.title)
-    except (RuntimeError, OSError) as exc:
+        selected = await asyncio.to_thread(
+            _pick_folder_native, payload.initial_dir, payload.title
+        )
+    except OSError as exc:
         detail = str(exc) or f"{type(exc).__name__} (no message)"
         logger.exception("Native folder picker failed: %s", detail)
         raise HTTPException(
