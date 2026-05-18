@@ -1,0 +1,738 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>DeleteBackground — local batch background remover</title>
+    <link rel="icon" href="/static/img/favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://rsms.me/" />
+    <link rel="stylesheet" href="https://rsms.me/inter/inter.css" />
+    <link rel="stylesheet" href="/static/css/styles.css" />
+  </head>
+  <body>
+    <div class="app">
+      <aside class="sidebar" aria-label="Primary">
+        <div class="sidebar__brand">
+          <span class="brand__mark" aria-hidden="true">
+            <svg viewBox="0 0 36 36" width="36" height="36">
+              <defs>
+                <linearGradient id="brandGradient" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stop-color="#582CFF" />
+                  <stop offset="100%" stop-color="#BF40FF" />
+                </linearGradient>
+              </defs>
+              <rect x="0" y="0" width="36" height="36" rx="8" fill="url(#brandGradient)" />
+              <path d="M12 12h7l4 4v8H12z" fill="white" fill-opacity="0.94" />
+              <path d="M19 12v4h4" fill="none" stroke="white" stroke-opacity="0.6" stroke-width="1.4" />
+            </svg>
+          </span>
+          <div>
+            <div class="brand__name">DeleteBackground</div>
+            <div class="brand__sub">v{{ version }}</div>
+          </div>
+        </div>
+
+        <p class="sidebar__group">Workspace</p>
+        <nav class="sidebar__nav" aria-label="Workspace navigation">
+          <button type="button" class="nav-item nav-item--active" data-screen="dashboard">
+            <span class="nav-item__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+                <rect x="3" y="3" width="7" height="9" rx="1.5" />
+                <rect x="14" y="3" width="7" height="5" rx="1.5" />
+                <rect x="14" y="12" width="7" height="9" rx="1.5" />
+                <rect x="3" y="16" width="7" height="5" rx="1.5" />
+              </svg>
+            </span>
+            <span class="nav-item__label">Batches</span>
+          </button>
+          <button type="button" class="nav-item" data-screen="live">
+            <span class="nav-item__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 7v5l3 2" />
+              </svg>
+            </span>
+            <span class="nav-item__label">Live processing</span>
+          </button>
+          <button type="button" class="nav-item" data-screen="output">
+            <span class="nav-item__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+                <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+              </svg>
+            </span>
+            <span class="nav-item__label">Output folder</span>
+          </button>
+        </nav>
+
+        <p class="sidebar__group">System</p>
+        <nav class="sidebar__nav" aria-label="System navigation">
+          <button type="button" class="nav-item" data-screen="settings">
+            <span class="nav-item__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+                <circle cx="12" cy="12" r="3" />
+                <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1A2 2 0 1 1 7 4.7l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9c.2.6.7 1 1.3 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z" />
+              </svg>
+            </span>
+            <span class="nav-item__label">Settings</span>
+          </button>
+          <button type="button" class="nav-item" data-screen="logs">
+            <span class="nav-item__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+                <path d="M4 5h16M4 12h16M4 19h10" />
+              </svg>
+            </span>
+            <span class="nav-item__label">Logs</span>
+          </button>
+        </nav>
+
+        <div class="sidebar__footer">
+          <div class="status-pill" id="status-pill">
+            <span class="status-pill__dot"></span>
+            <div class="status-pill__body">
+              <span class="status-pill__title" id="status-pill-title">Connecting…</span>
+              <span class="status-pill__sub" id="status-pill-sub">live channel</span>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <main class="screen">
+        <!-- ============================================================ -->
+        <!-- Topbar — shared header                                       -->
+        <!-- ============================================================ -->
+        <header class="topbar">
+          <div class="topbar__title">
+            <h1 id="screen-title">Batches</h1>
+            <p id="screen-subtitle">Remove backgrounds from a folder of images, locally.</p>
+          </div>
+          <div class="topbar__actions">
+            <div class="search">
+              <span class="search__icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6">
+                  <circle cx="11" cy="11" r="7" />
+                  <path d="m20 20-3.5-3.5" />
+                </svg>
+              </span>
+              <input id="search" type="search" placeholder="Search files…" aria-label="Search files" />
+              <kbd class="search__kbd">Ctrl K</kbd>
+            </div>
+            <span class="conn-badge" id="conn-badge" title="WebSocket status">
+              <span class="conn-badge__dot"></span>
+              <span class="conn-badge__label">connecting</span>
+            </span>
+            <span class="avatar" aria-hidden="true">DB</span>
+          </div>
+        </header>
+
+        <!-- ============================================================ -->
+        <!-- Screen / Dashboard                                           -->
+        <!-- ============================================================ -->
+        <section class="screen__viewport" data-screen="dashboard">
+          <div class="view">
+            <div class="view__main">
+              <section class="card">
+                <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="Choose input folder">
+                  <span class="dropzone__icon" aria-hidden="true">
+                    <span>
+                      <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.6">
+                        <path d="M21 15v3a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3v-3" />
+                        <path d="M7 10l5-5 5 5" />
+                        <path d="M12 5v10" />
+                      </svg>
+                    </span>
+                  </span>
+                  <div class="dropzone__title">Drop folder or images here</div>
+                  <div class="dropzone__sub">or click to browse — PNG, JPG, WEBP, BMP, TIFF</div>
+                  <input id="folder-picker" type="file" webkitdirectory directory multiple hidden />
+                </div>
+
+                <div class="panel__divider"></div>
+
+                <div class="path-grid">
+                  <div class="path-input">
+                    <label for="input-folder">Input folder</label>
+                    <div class="path-input__box">
+                      <span class="path-input__icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6">
+                          <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                        </svg>
+                      </span>
+                      <input
+                        id="input-folder"
+                        type="text"
+                        spellcheck="false"
+                        autocomplete="off"
+                        placeholder="C:\Pictures\session-2026-05" />
+                      <button type="button" class="path-input__check" data-browse="input-folder" aria-label="Browse for input folder">
+                        <span>
+                          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6">
+                            <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                          </svg>
+                        </span>
+                      </button>
+                      <button type="button" class="path-input__check" data-probe="input-folder" aria-label="Check input folder">
+                        <span>
+                          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="m5 12 5 5L20 7" />
+                          </svg>
+                        </span>
+                      </button>
+                    </div>
+                    <p class="path-input__status" data-status-for="input-folder"></p>
+                  </div>
+                  <div class="path-input">
+                    <label for="output-folder">Output folder</label>
+                    <div class="path-input__box">
+                      <span class="path-input__icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6">
+                          <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                        </svg>
+                      </span>
+                      <input
+                        id="output-folder"
+                        type="text"
+                        spellcheck="false"
+                        autocomplete="off"
+                        placeholder="C:\Pictures\session-2026-05_out" />
+                      <button type="button" class="path-input__check" data-browse="output-folder" aria-label="Browse for output folder">
+                        <span>
+                          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6">
+                            <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                          </svg>
+                        </span>
+                      </button>
+                      <button type="button" class="path-input__check" data-probe="output-folder" aria-label="Check output folder">
+                        <span>
+                          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="m5 12 5 5L20 7" />
+                          </svg>
+                        </span>
+                      </button>
+                    </div>
+                    <p class="path-input__status" data-status-for="output-folder"></p>
+                  </div>
+                </div>
+              </section>
+
+              <section class="card">
+                <header class="panel__header">
+                  <h3>Run configuration</h3>
+                  <p>Pick a model, quality preset, and worker concurrency.</p>
+                </header>
+
+                <div class="panel__row panel__row--config">
+                  <div class="select-field">
+                    <label for="model-select">Model</label>
+                    <div class="select">
+                      <select id="model-select"></select>
+                      <span class="select__chevron" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                          <path d="m6 9 6 6 6-6" />
+                        </svg>
+                      </span>
+                    </div>
+                    <p class="hint" id="model-hint"></p>
+                  </div>
+
+                  <div class="segmented-field">
+                    <label>Quality preset</label>
+                    <div class="segmented" role="tablist" aria-label="Quality preset">
+                      <button type="button" data-quality="fast" role="tab" aria-checked="false">Fast</button>
+                      <button type="button" data-quality="balanced" role="tab" aria-checked="true">Balanced</button>
+                      <button type="button" data-quality="high" role="tab" aria-checked="false">Quality</button>
+                    </div>
+                  </div>
+
+                  <div class="slider-field">
+                    <div class="slider-field__head">
+                      <label for="workers">Worker threads</label>
+                      <output id="workers-value" for="workers">4</output>
+                    </div>
+                    <input id="workers" type="range" min="1" max="8" step="1" value="4" />
+                  </div>
+                </div>
+
+                <div class="panel__divider"></div>
+
+                <div class="panel__row panel__row--actions">
+                  <div class="switch-stack">
+                    <label class="switch-row">
+                      <input id="skip-existing" type="checkbox" checked />
+                      <span class="switch"></span>
+                      <span>Skip processed files</span>
+                    </label>
+                    <label class="switch-row">
+                      <input id="force" type="checkbox" />
+                      <span class="switch"></span>
+                      <span>Force re-process</span>
+                    </label>
+                    <label class="switch-row">
+                      <input id="recursive" type="checkbox" />
+                      <span class="switch"></span>
+                      <span>Scan sub-folders</span>
+                    </label>
+                  </div>
+
+                  <div class="action-row">
+                    <button type="button" class="btn btn--secondary" id="choose-folder-btn">
+                      <span data-icon aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6">
+                          <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                        </svg>
+                      </span>
+                      Choose folder
+                    </button>
+                    <button type="button" class="btn btn--primary" id="start-btn">
+                      <span data-icon aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                          <path d="M8 5v14l11-7z" />
+                        </svg>
+                      </span>
+                      Start batch
+                    </button>
+                  </div>
+                </div>
+              </section>
+
+              <section class="card">
+                <header class="panel__header panel__header--row">
+                  <div>
+                    <h3>Queue</h3>
+                    <p id="queue-count">No files yet.</p>
+                  </div>
+                  <div class="panel__actions">
+                    <button type="button" class="btn btn--ghost" id="export-csv-btn">
+                      <span data-icon aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6">
+                          <path d="M12 3v12m0 0-4-4m4 4 4-4M5 21h14" />
+                        </svg>
+                      </span>
+                      Export CSV
+                    </button>
+                    <button type="button" class="btn btn--danger" id="cancel-btn" disabled>Cancel</button>
+                  </div>
+                </header>
+
+                <div class="filerow-list" id="queue-body">
+                  <p class="empty-state" id="queue-empty">Choose an input folder and click <strong>Start batch</strong> to begin.</p>
+                </div>
+              </section>
+            </div>
+
+            <aside class="view__side">
+              <p class="view__side-title">At a glance</p>
+              <div class="stat">
+                <header>
+                  <span class="stat__label">Estimated</span>
+                  <span class="stat__icon stat__icon--accent" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                      <path d="M4 6h16M4 12h10M4 18h16" />
+                    </svg>
+                  </span>
+                </header>
+                <span class="stat__value" id="stat-total-pretty">0</span>
+                <span class="stat__sub" id="stat-total-hint">images in folder</span>
+              </div>
+              <div class="stat">
+                <header>
+                  <span class="stat__label">Time saved</span>
+                  <span class="stat__icon stat__icon--ok" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                      <circle cx="12" cy="12" r="9" />
+                      <path d="M12 7v5l3 2" />
+                    </svg>
+                  </span>
+                </header>
+                <span class="stat__value" id="stat-time-saved">0m</span>
+                <span class="stat__sub">vs. manual cutout</span>
+              </div>
+              <div class="stat">
+                <header>
+                  <span class="stat__label">Failures</span>
+                  <span class="stat__icon stat__icon--danger" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                      <circle cx="12" cy="12" r="9" />
+                      <path d="M12 8v5M12 16v.5" />
+                    </svg>
+                  </span>
+                </header>
+                <span class="stat__value" id="stat-failures">0</span>
+                <span class="stat__sub" id="stat-failures-hint">All clean</span>
+              </div>
+
+              <p class="view__side-title" style="margin-top: 12px">Preview</p>
+              <section class="card" style="padding: 12px">
+                <div class="preview" id="preview">
+                  <div class="before-after" id="before-after">
+                    <div class="before-after__half before-after__before">
+                      <span class="before-after__chip">BEFORE</span>
+                    </div>
+                    <div class="before-after__half before-after__after">
+                      <span class="before-after__chip before-after__chip--accent">AFTER</span>
+                    </div>
+                  </div>
+                  <p class="preview__hint" id="preview-hint">Run a batch to see the first result here.</p>
+                </div>
+              </section>
+            </aside>
+          </div>
+        </section>
+
+        <!-- ============================================================ -->
+        <!-- Screen / Live processing                                     -->
+        <!-- ============================================================ -->
+        <section class="screen__viewport" data-screen="live" hidden>
+          <div class="view">
+            <div class="view__main view__main--single">
+              <section class="card">
+                <div class="live-hero__head">
+                  <span class="live-hero__breadcrumb">batches / live-2026-05</span>
+                  <span class="badge badge--idle" id="state-badge">
+                    <span class="badge__dot"></span>
+                    <span class="badge__text">idle</span>
+                  </span>
+                </div>
+
+                <h2 class="live-hero__title">
+                  <span id="hero-processed">0</span> of <span id="hero-total">0</span> images processed
+                </h2>
+                <p class="live-hero__sub" id="hero-sub">Choose a folder and start a batch to begin.</p>
+
+                <div class="progress">
+                  <div class="progress__meta">
+                    <span><span id="stat-processed">0</span> done · <span id="stat-skipped">0</span> skipped · <span id="stat-failed">0</span> failed</span>
+                    <span id="stat-percent">0%</span>
+                  </div>
+                  <div class="progress__track">
+                    <div class="progress__fill" id="progress-fill" style="width: 0%"></div>
+                  </div>
+                </div>
+              </section>
+
+              <div class="grid-two">
+                <div class="stat">
+                  <header>
+                    <span class="stat__label">Throughput</span>
+                    <span class="stat__icon stat__icon--accent" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                        <path d="M3 17l6-6 4 4 8-9" />
+                      </svg>
+                    </span>
+                  </header>
+                  <span class="stat__value" id="stat-throughput">—</span>
+                  <span class="stat__sub">images / second</span>
+                </div>
+                <div class="stat">
+                  <header>
+                    <span class="stat__label">ETA</span>
+                    <span class="stat__icon" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                        <circle cx="12" cy="12" r="9" />
+                        <path d="M12 7v5l3 2" />
+                      </svg>
+                    </span>
+                  </header>
+                  <span class="stat__value" id="stat-eta">—</span>
+                  <span class="stat__sub" id="stat-eta-hint">until done</span>
+                </div>
+              </div>
+
+              <section class="card">
+                <header class="panel__header panel__header--row">
+                  <div>
+                    <h3>Recent results</h3>
+                    <p>Newest finished cutouts.</p>
+                  </div>
+                  <div class="panel__actions">
+                    <div class="segmented segmented--small" role="tablist" aria-label="Result filter">
+                      <button type="button" data-filter="all" role="tab" aria-checked="true">All</button>
+                      <button type="button" data-filter="done" role="tab" aria-checked="false">Done</button>
+                      <button type="button" data-filter="failed" role="tab" aria-checked="false">Failed</button>
+                    </div>
+                    <button type="button" class="btn btn--danger" id="live-cancel-btn" disabled>Cancel</button>
+                  </div>
+                </header>
+                <div class="thumb-grid" id="thumbs">
+                  <p class="empty-state" id="thumbs-empty">Results will appear here as they finish.</p>
+                </div>
+              </section>
+            </div>
+          </div>
+        </section>
+
+        <!-- ============================================================ -->
+        <!-- Screen / Output folder                                       -->
+        <!-- ============================================================ -->
+        <section class="screen__viewport" data-screen="output" hidden>
+          <div class="view">
+            <div class="view__main view__main--single">
+              <section class="card">
+                <header class="panel__header panel__header--row">
+                  <div>
+                    <h3>Output folder</h3>
+                    <p id="output-folder-label">Newest files produced in the configured output folder.</p>
+                  </div>
+                  <div class="panel__actions">
+                    <button type="button" class="btn btn--ghost" id="output-refresh-btn">
+                      <span data-icon aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8">
+                          <path d="M3 12a9 9 0 0 1 15-6.7M21 12a9 9 0 0 1-15 6.7" />
+                          <path d="M18 3v4h-4M6 21v-4h4" />
+                        </svg>
+                      </span>
+                      Refresh
+                    </button>
+                  </div>
+                </header>
+                <div class="thumb-grid" id="output-grid">
+                  <p class="empty-state" id="output-empty">Configure an output folder to browse the produced files.</p>
+                </div>
+              </section>
+            </div>
+          </div>
+        </section>
+
+        <!-- ============================================================ -->
+        <!-- Screen / Settings                                            -->
+        <!-- ============================================================ -->
+        <section class="screen__viewport" data-screen="settings" hidden>
+          <div class="view">
+            <div class="view__main view__main--single">
+              <section class="card">
+                <header class="panel__header">
+                  <h3>Edge quality</h3>
+                  <p>Alpha matting refines the boundary between subject and background.</p>
+                </header>
+
+                <div class="switch-stack">
+                  <label class="switch-row">
+                    <input id="alpha-matting" type="checkbox" />
+                    <span class="switch"></span>
+                    <span>Enable alpha matting (sharper edges, slower)</span>
+                  </label>
+                </div>
+
+                <div class="panel__divider"></div>
+
+                <div class="grid-three">
+                  <div class="field">
+                    <label for="am-fg">Foreground threshold</label>
+                    <input id="am-fg" type="number" min="0" max="255" value="240" />
+                    <p class="hint">0 – 255</p>
+                  </div>
+                  <div class="field">
+                    <label for="am-bg">Background threshold</label>
+                    <input id="am-bg" type="number" min="0" max="255" value="10" />
+                    <p class="hint">0 – 255</p>
+                  </div>
+                  <div class="field">
+                    <label for="am-erode">Erode size</label>
+                    <input id="am-erode" type="number" min="0" max="40" value="10" />
+                    <p class="hint">0 – 40</p>
+                  </div>
+                </div>
+              </section>
+
+              <section class="card">
+                <header class="panel__header">
+                  <h3>Output encoding</h3>
+                  <p>How produced PNGs are written to disk.</p>
+                </header>
+                <div class="grid-two">
+                  <div class="field">
+                    <label for="png-compression">PNG compression</label>
+                    <input id="png-compression" type="number" min="0" max="9" value="1" />
+                    <p class="hint">0 = fastest, 9 = smallest files.</p>
+                  </div>
+                  <div class="field">
+                    <label for="background-color">Solid background colour</label>
+                    <div class="color-row">
+                      <input id="background-color" type="text" placeholder="#FFFFFF or empty" />
+                      <input id="background-color-picker" type="color" value="#ffffff" aria-label="Pick colour" />
+                    </div>
+                    <p class="hint">Leave empty for transparent PNGs.</p>
+                  </div>
+                </div>
+              </section>
+
+              <section class="card">
+                <header class="panel__header">
+                  <h3>About</h3>
+                  <p>Build info.</p>
+                </header>
+                <div class="grid-two">
+                  <div class="field">
+                    <label>Version</label>
+                    <p class="hint"><code>v{{ version }}</code></p>
+                  </div>
+                  <div class="field">
+                    <label>Inference engine</label>
+                    <p class="hint"><code>ONNX Runtime via rembg</code></p>
+                  </div>
+                </div>
+              </section>
+            </div>
+          </div>
+        </section>
+
+        <!-- ============================================================ -->
+        <!-- Screen / Logs                                                -->
+        <!-- ============================================================ -->
+        <section class="screen__viewport" data-screen="logs" hidden>
+          <div class="view">
+            <div class="view__main view__main--single">
+              <section class="card card--logs">
+                <header class="panel__header panel__header--row">
+                  <div>
+                    <h3>Activity log</h3>
+                    <p>Session events — folder probes, job lifecycle, and live errors. Verbose server logs stream to the terminal.</p>
+                  </div>
+                  <div class="panel__actions">
+                    <div class="segmented segmented--small log-filter" role="tablist" aria-label="Log level filter">
+                      <button type="button" data-log-filter="all" role="tab" aria-checked="true">All<span class="log-filter__count" data-log-count="all">0</span></button>
+                      <button type="button" data-log-filter="info" role="tab" aria-checked="false">Info<span class="log-filter__count" data-log-count="info">0</span></button>
+                      <button type="button" data-log-filter="ok" role="tab" aria-checked="false">OK<span class="log-filter__count" data-log-count="ok">0</span></button>
+                      <button type="button" data-log-filter="warn" role="tab" aria-checked="false">Warn<span class="log-filter__count" data-log-count="warn">0</span></button>
+                      <button type="button" data-log-filter="err" role="tab" aria-checked="false">Errors<span class="log-filter__count" data-log-count="err">0</span></button>
+                    </div>
+                    <button type="button" class="btn btn--ghost" id="logs-copy-btn" title="Copy filtered log entries">
+                      <span data-icon aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6">
+                          <rect x="9" y="9" width="11" height="11" rx="2" />
+                          <path d="M5 15V6a2 2 0 0 1 2-2h9" />
+                        </svg>
+                      </span>
+                      Copy
+                    </button>
+                    <button type="button" class="btn btn--ghost" id="logs-clear-btn">Clear</button>
+                  </div>
+                </header>
+                <div class="log" id="logs" role="log" aria-live="polite" aria-relevant="additions">
+                  <p class="empty-state" id="logs-empty">No events yet — start a batch to see live activity.</p>
+                </div>
+              </section>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div class="empty-state" id="toast" hidden role="status" aria-live="polite" style="position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); border-style: solid; z-index: 50; min-width: 280px; max-width: 480px;"></div>
+
+    <!-- =============================================================== -->
+    <!-- Lightbox — opens when a thumbnail is clicked, with prev/next  -->
+    <!-- navigation inside the currently displayed gallery.            -->
+    <!-- =============================================================== -->
+    <div
+      class="lightbox"
+      id="lightbox"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="lightbox-title"
+      hidden
+    >
+      <div class="lightbox__backdrop" data-lightbox-close aria-hidden="true"></div>
+      <div class="lightbox__shell" role="document">
+        <header class="lightbox__head">
+          <div class="lightbox__title-wrap">
+            <h3 class="lightbox__title" id="lightbox-title">file.png</h3>
+            <p class="lightbox__sub" id="lightbox-sub"></p>
+          </div>
+          <div class="lightbox__actions">
+            <span class="lightbox__counter" id="lightbox-counter" aria-live="polite"></span>
+            <a class="lightbox__btn" id="lightbox-download" download title="Download" aria-label="Download">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6">
+                <path d="M12 3v12m0 0-4-4m4 4 4-4M5 21h14" />
+              </svg>
+            </a>
+            <button type="button" class="lightbox__btn" data-lightbox-close title="Close (Esc)" aria-label="Close">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path d="m6 6 12 12M18 6 6 18" />
+              </svg>
+            </button>
+          </div>
+        </header>
+        <div class="lightbox__stage">
+          <button
+            type="button"
+            class="lightbox__nav lightbox__nav--prev"
+            id="lightbox-prev"
+            aria-label="Previous image"
+          >
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path d="m15 6-6 6 6 6" />
+            </svg>
+          </button>
+          <figure class="lightbox__figure">
+            <img id="lightbox-img" alt="" />
+          </figure>
+          <button
+            type="button"
+            class="lightbox__nav lightbox__nav--next"
+            id="lightbox-next"
+            aria-label="Next image"
+          >
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path d="m9 6 6 6-6 6" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- =============================================================== -->
+    <!-- Model-loading modal — overlays the screen while rembg builds   -->
+    <!-- the ONNX session. First-run weight download can take a while. -->
+    <!-- =============================================================== -->
+    <div
+      class="loader-modal"
+      id="loader-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="loader-title"
+      aria-describedby="loader-sub"
+      hidden
+    >
+      <div class="loader-modal__backdrop" aria-hidden="true"></div>
+      <div class="loader-modal__card" role="document">
+        <div class="loader-modal__visual" aria-hidden="true">
+          <svg class="loader-modal__orbit" viewBox="0 0 120 120">
+            <defs>
+              <linearGradient id="loaderRing" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="#582CFF" />
+                <stop offset="55%" stop-color="#BF40FF" />
+                <stop offset="100%" stop-color="#00F2FF" />
+              </linearGradient>
+            </defs>
+            <circle class="loader-modal__track" cx="60" cy="60" r="48" />
+            <circle class="loader-modal__arc" cx="60" cy="60" r="48" />
+          </svg>
+          <span class="loader-modal__core">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6">
+              <path d="M12 3v3M12 18v3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M3 12h3M18 12h3M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1" />
+            </svg>
+          </span>
+          <span class="loader-modal__pulse" aria-hidden="true"></span>
+        </div>
+
+        <h2 class="loader-modal__title" id="loader-title">
+          Loading <span id="loader-model-name">model</span>
+        </h2>
+        <p class="loader-modal__sub" id="loader-sub">
+          Building the ONNX session. The first run may also download weights —
+          that can take a minute on a slow connection.
+        </p>
+
+        <div class="loader-modal__bar" aria-hidden="true">
+          <span class="loader-modal__bar-fill"></span>
+        </div>
+
+        <div class="loader-modal__hint" id="loader-elapsed" aria-live="polite">
+          Preparing the inference graph…
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="/static/js/app.js"></script>
+  </body>
+</html>
