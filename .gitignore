@@ -20,7 +20,7 @@ settings.json
 logs/
 *.log
 .u2net/
-models/
+/models/
 
 # Tooling artifacts
 .playwright-mcp/
