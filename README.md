@@ -2,31 +2,33 @@
 
 Batch background removal for images — local, free, and fast.
 
-Point the app at an input folder, choose an output folder, click **Start**, and
-every supported image gets a transparent PNG counterpart in the destination
-folder. Uses [rembg](https://github.com/danielgatis/rembg) + ONNX Runtime
-under the hood, so it runs entirely on your machine with no API keys, no
-uploads, and no usage limits.
-
-![architecture](static/img/favicon.svg)
+Point the app at an input folder, choose an output folder, click **Start
+batch**, and every supported image gets a transparent PNG counterpart in the
+destination folder. Uses [rembg](https://github.com/danielgatis/rembg) +
+ONNX Runtime under the hood, so it runs entirely on your machine with no API
+keys, no uploads, and no usage limits.
 
 ---
 
 ## Highlights
 
-- **Free & offline** — no external services. Models download once and stay
-  cached locally.
-- **Fast** — ONNX-accelerated inference, parallel worker pool, model warm-up,
-  throttled progress events.
-- **High quality** — choose between BiRefNet (state of the art), ISNet, U²-Net
-  variants, and a portrait-specialised model.
-- **Configurable** — input/output folders, recursion, model, alpha matting,
-  optional solid-color background, PNG compression level — all persisted
-  between sessions.
-- **Safe by default** — atomic writes, idempotent re-runs, skip-if-newer, single
-  failure isolation, cancellable jobs.
-- **Polished UI** — real-time WebSocket progress, ETA, dark theme, fully
-  keyboard-accessible.
+- **Free & offline** — no external services. Models are downloaded once on
+  first use and stay cached locally.
+- **Fast** — ONNX-accelerated inference, single warmed-up rembg session,
+  throttled WebSocket progress events.
+- **Choice of models** — BiRefNet (state of the art), ISNet, U²-Net variants,
+  Silueta, and a portrait-specialised model. Picker is grouped by quality
+  tier.
+- **Configurable** — input/output folders, sub-folder scanning, model,
+  Quality preset, worker threads, alpha matting (with foreground / background
+  / erode tuning), optional solid-colour background, and PNG compression
+  level. Server-side preferences are persisted to `settings.json`.
+- **Safe by default** — atomic writes, idempotent re-runs that skip already
+  processed files, single failure isolation, cancellable jobs.
+- **Polished UI** — dark themed sidebar with Batches / Live processing /
+  Output / Settings / Logs screens, native folder picker dialog, real-time
+  progress with ETA and throughput, before/after preview, output gallery
+  with click-to-zoom lightbox, and a filterable activity log.
 
 ## Requirements
 
@@ -58,50 +60,79 @@ starts the server on <http://127.0.0.1:8765>, and opens your default browser.
 
 ```bash
 python -m venv .venv
-.venv/bin/pip install -r requirements.txt        # Windows: .venv\Scripts\pip
-.venv/bin/python -m uvicorn app.main:app --port 8765
+
+# Install dependencies
+.venv/bin/pip install -r requirements.txt          # Windows: .venv\Scripts\pip.exe
+
+# Start the server
+.venv/bin/python -m uvicorn app.main:app --port 8765   # Windows: .venv\Scripts\python.exe
 ```
+
+Then open <http://127.0.0.1:8765>.
 
 ## Using the app
 
-1. **Folders**: paste the absolute path to the folder containing your images,
-   and the destination folder for the cutouts. Click **Check** to validate
-   each path and see how many supported images were found.
-2. **Model**: pick a tile. `BiRefNet General` is the highest quality; `U²-Net
-   Lite` is the fastest. Models are downloaded the first time they're used.
-3. **Run**: click **Start**. Progress, ETA, and per-image errors stream live.
-   The job can be **Cancelled** at any time and resumed later — already
-   processed files are skipped on subsequent runs.
+The sidebar exposes five screens:
+
+| Screen      | What it's for                                                                  |
+| ----------- | ------------------------------------------------------------------------------ |
+| Batches     | Pick folders, choose a model, configure the run, and start a batch.            |
+| Live        | Watch progress, ETA, throughput, and recent results while a batch is running.  |
+| Output      | Browse the produced PNGs as a grid; click a thumbnail to open the lightbox.    |
+| Settings    | Tune alpha matting, PNG compression, and the solid-colour background.          |
+| Logs        | Filterable activity log (Info / OK / Warn / Errors) with a Copy button.        |
+
+### Running a batch
+
+1. **Folders** — type the absolute paths, or click the folder icon next to
+   each field to open the OS-native picker. The check icon validates the
+   path and reports how many supported images were found (recursive or not).
+2. **Model** — choose from the dropdown. Entries are grouped by quality
+   tier (Premium / High / Balanced / Fast). The **Quality preset** chips
+   (Fast / Balanced / Quality) jump the selector to a sensible model in
+   that tier. **ISNet General** is the default; **BiRefNet General** is the
+   highest-quality option; **U²-Net Lite** is the fastest.
+3. **Run** — adjust **Worker threads** if needed, tick **Scan sub-folders**
+   to recurse, then click **Start batch**. Progress, ETA, throughput, and
+   per-image errors stream live over WebSocket. The job can be **Cancelled**
+   at any time; already-processed files are skipped on subsequent runs
+   unless **Force re-process** is enabled.
 
 ### Tips
 
-- Toggle **Scan subdirectories** to mirror the input layout under the output
+- Models are downloaded on first use only — a loading overlay shows while
+  the ONNX session warms up.
+- Toggle **Scan sub-folders** to mirror the input layout under the output
   folder.
-- Enable **Alpha matting** under *Advanced* for cleaner hair / fur edges (it is
-  slower).
-- Set a **Solid background color** to flatten the cutouts onto an RGB
-  background instead of producing transparent PNGs.
+- Enable **Alpha matting** in *Settings* for cleaner hair / fur edges. It is
+  slower; foreground / background thresholds and erode size are tunable.
+- Set a **Solid background colour** (in *Settings*) to flatten the cutouts
+  onto an RGB background instead of producing transparent PNGs. Accepts
+  `#RRGGBB` or `#RRGGBBAA`; leave empty to keep transparency.
+- Lower **PNG compression** (default 1) gives faster writes; raise it for
+  smaller files.
 
 ## Configuration
 
 Environment variables (all optional, prefix `DBG_`):
 
-| Variable           | Default     | Purpose                                       |
-| ------------------ | ----------- | --------------------------------------------- |
-| `DBG_HOST`         | `127.0.0.1` | Bind address. Use `0.0.0.0` to expose on LAN. |
-| `DBG_PORT`         | `8765`      | HTTP port.                                    |
-| `DBG_LOG_LEVEL`    | `INFO`      | Python logging level.                         |
-| `DBG_MAX_WORKERS`  | `min(CPU, 4)` | Concurrent inference workers.               |
+| Variable          | Default       | Purpose                                       |
+| ----------------- | ------------- | --------------------------------------------- |
+| `DBG_HOST`        | `127.0.0.1`   | Bind address. Use `0.0.0.0` to expose on LAN. |
+| `DBG_PORT`        | `8765`        | HTTP port.                                    |
+| `DBG_LOG_LEVEL`   | `INFO`        | Python logging level.                         |
+| `DBG_MAX_WORKERS` | `min(CPU, 4)` | Hard cap on concurrent inference threads.     |
 
-User preferences (folders, model, options) are persisted in `settings.json`
-next to the app and survive restarts.
+User preferences (folders, model, alpha matting, PNG compression, background
+colour, recursion, skip-existing) are persisted in `settings.json` next to
+the app and survive restarts.
 
 ## Supported input formats
 
 `.jpg`, `.jpeg`, `.png`, `.webp`, `.bmp`, `.tif`, `.tiff`
 
-Output is always PNG with an alpha channel (unless a solid background color is
-configured).
+Output is always PNG with an alpha channel, unless a solid background colour
+is configured.
 
 ## Project layout
 
@@ -110,7 +141,7 @@ app/
   main.py                 FastAPI app + lifespan
   config.py               Env settings & persisted preferences
   api/
-    routes.py             REST endpoints
+    routes.py             REST endpoints (incl. native folder picker)
     websocket.py          Live progress channel
   core/
     background_remover.py rembg session wrapper
@@ -118,7 +149,7 @@ app/
     file_manager.py       Filesystem helpers
     exceptions.py         Domain exceptions
   models/
-    schemas.py            Pydantic request/response models
+    schemas.py            Pydantic request/response models + model catalog
   utils/
     logger.py             Logging setup
 static/                   CSS, JS, icons
