@@ -1,0 +1,128 @@
+name: Build Windows EXE
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-exe-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build & package
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller==6.11.1
+
+      - name: Read version
+        id: ver
+        shell: pwsh
+        run: |
+          $content = Get-Content app/__init__.py -Raw
+          if ($content -notmatch '__version__\s*=\s*"(?<v>[0-9]+\.[0-9]+\.[0-9]+)"') {
+            Write-Error "Could not find 3-digit __version__ in app/__init__.py"
+            exit 1
+          }
+          $version = $Matches['v']
+          $tag = "v$version"
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "version=$version"
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "tag=$tag"
+          Write-Host "Detected version: $version (tag $tag)"
+
+      - name: Build executable with PyInstaller
+        shell: pwsh
+        run: |
+          pyinstaller `
+            --noconfirm `
+            --clean `
+            --name DeleteBackground `
+            --add-data "templates;templates" `
+            --add-data "static;static" `
+            --collect-all rembg `
+            --collect-all onnxruntime `
+            --collect-data uvicorn `
+            --hidden-import uvicorn.lifespan.on `
+            --hidden-import uvicorn.lifespan.off `
+            --hidden-import uvicorn.protocols.websockets.auto `
+            --hidden-import uvicorn.protocols.websockets.websockets_impl `
+            --hidden-import uvicorn.protocols.http.auto `
+            --hidden-import uvicorn.protocols.http.h11_impl `
+            --hidden-import uvicorn.loops.auto `
+            --hidden-import uvicorn.loops.asyncio `
+            launcher.py
+
+      - name: Package release zip
+        id: pkg
+        shell: pwsh
+        run: |
+          $version = "${{ steps.ver.outputs.version }}"
+          $name = "DeleteBackground-$version-win-x64"
+          $zip = "$name.zip"
+          if (-not (Test-Path "dist/DeleteBackground")) {
+            Write-Error "Expected dist/DeleteBackground directory after PyInstaller build."
+            exit 1
+          }
+          Compress-Archive -Path "dist/DeleteBackground/*" -DestinationPath $zip -Force
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "zip=$zip"
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "name=$name"
+          Write-Host "Packaged $zip"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.pkg.outputs.name }}
+          path: ${{ steps.pkg.outputs.zip }}
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Check whether release already exists
+        id: release_check
+        if: github.ref == 'refs/heads/main'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag="${{ steps.ver.outputs.tag }}"
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Release $tag already exists, skipping creation."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "Release $tag does not exist, will create."
+          fi
+
+      - name: Create GitHub release
+        if: github.ref == 'refs/heads/main' && steps.release_check.outputs.exists == 'false'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag="${{ steps.ver.outputs.tag }}"
+          version="${{ steps.ver.outputs.version }}"
+          zip="${{ steps.pkg.outputs.zip }}"
+          gh release create "$tag" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "DeleteBackground $tag" \
+            --notes "Automated Windows build for version $version (commit $GITHUB_SHA)." \
+            "$zip"
