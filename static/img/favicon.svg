@@ -1,11 +1,31 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <title>DeleteBackground</title>
+  <desc>Image with the top-right corner showing a transparency checkerboard, indicating background removal. A portrait silhouette is preserved across the cut.</desc>
   <defs>
-    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#7c5cff"/>
-      <stop offset="100%" stop-color="#22d3ee"/>
+    <linearGradient id="dbg-bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#8B5CF6"/>
+      <stop offset="0.55" stop-color="#6D28D9"/>
+      <stop offset="1" stop-color="#1E40AF"/>
     </linearGradient>
+    <pattern id="dbg-checker" width="58" height="58" patternUnits="userSpaceOnUse">
+      <rect width="58" height="58" fill="#FFFFFF"/>
+      <rect width="29" height="29" fill="#CBD5E1"/>
+      <rect x="29" y="29" width="29" height="29" fill="#CBD5E1"/>
+    </pattern>
+    <clipPath id="dbg-frame">
+      <rect x="24" y="24" width="464" height="464" rx="92"/>
+    </clipPath>
   </defs>
-  <rect width="32" height="32" rx="7" fill="url(#g)"/>
-  <circle cx="13.5" cy="18" r="6" fill="white"/>
-  <path d="M19 7h5l4 4v5" stroke="white" stroke-width="2" fill="none" stroke-linecap="round"/>
+
+  <g clip-path="url(#dbg-frame)">
+    <rect width="512" height="512" fill="url(#dbg-checker)"/>
+    <polygon points="24,24 140,24 488,372 488,488 24,488" fill="url(#dbg-bg)"/>
+
+    <g fill="#0F172A">
+      <circle cx="256" cy="232" r="88"/>
+      <path d="M 112,488 C 112,388 176,336 256,336 C 336,336 400,388 400,488 Z"/>
+    </g>
+  </g>
+
+  <rect x="24" y="24" width="464" height="464" rx="92" fill="none" stroke="#0B1220" stroke-width="3" opacity="0.5"/>
 </svg>

@@ -32,7 +32,11 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pyinstaller==6.11.1
+          pip install pyinstaller==6.11.1 resvg-py==0.3.2
+
+      - name: Build executable icon (.ico)
+        shell: pwsh
+        run: python scripts/build_ico.py
 
       - name: Read version
         id: ver
@@ -56,6 +60,7 @@ jobs:
             --noconfirm `
             --clean `
             --name DeleteBackground `
+            --icon "static/img/favicon.ico" `
             --add-data "templates;templates" `
             --add-data "static;static" `
             --collect-all rembg `
